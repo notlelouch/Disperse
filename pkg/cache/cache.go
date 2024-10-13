@@ -1,4 +1,4 @@
-package main
+package cache
 
 import (
 	"sync"
@@ -14,6 +14,12 @@ type CacheItem struct {
 type Cache struct {
 	items map[string]CacheItem
 	mu    sync.RWMutex
+}
+
+func NewCache() *Cache {
+	return &Cache{
+		items: make(map[string]CacheItem),
+	}
 }
 
 func (c *Cache) Set(key string, value interface{}, duration time.Duration) {
@@ -44,10 +50,4 @@ func (c *Cache) Delete(key string) {
 	defer c.mu.Unlock()
 
 	delete(c.items, key)
-}
-
-func NewCache() *Cache {
-	return &Cache{
-		items: make(map[string]CacheItem),
-	}
 }
