@@ -42,12 +42,12 @@ func NewDistributedCache(port int) (*DistributedCache, error) {
 }
 
 // JoinCluster allows the current node to join an existing cluster using a peer address.
-func (dc *DistributedCache) joinCluster(peer string) error {
+func (dc *DistributedCache) JoinCluster(peer string) error {
 	_, err := dc.List.Join([]string{peer})
 	return err
 }
 
-func (dc *DistributedCache) httpHandler(w http.ResponseWriter, r http.Request) {
+func (dc *DistributedCache) HTTPHandler(w http.ResponseWriter, r *http.Request) {
 	key := r.URL.Path[len("/cache/"):]
 	switch r.Method {
 	case http.MethodGet:
