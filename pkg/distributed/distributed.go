@@ -16,6 +16,33 @@ type DistributedCache struct {
 	Config *memberlist.Config
 }
 
+// func NewDistributedCache(bindAddr string, port int) (*DistributedCache, error) {
+// 	// Initialize the local cache
+// 	cacheInstance := cache.NewCache()
+//
+// 	// Configure memberlist with default LAN settings and custom port
+// 	config := memberlist.DefaultLANConfig()
+// 	config.BindAddr = bindAddr
+// 	config.BindPort = port
+// 	config.AdvertiseAddr = bindAddr
+// 	config.AdvertisePort = port
+//
+// 	// Create a memberlist instance
+// 	list, err := memberlist.Create(config)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+//
+// 	// Create the DistributedCache instance
+// 	dc := &DistributedCache{
+// 		Cache:  cacheInstance,
+// 		List:   list,
+// 		Config: config,
+// 	}
+//
+// 	return dc, nil
+// }
+
 func NewDistributedCache(port int) (*DistributedCache, error) {
 	// Initialize the local cache
 	cacheInstance := cache.NewCache()
@@ -24,6 +51,26 @@ func NewDistributedCache(port int) (*DistributedCache, error) {
 	config := memberlist.DefaultLANConfig()
 	config.BindPort = port
 	config.AdvertisePort = port
+
+	// Create a memberlist instance
+	list, err := memberlist.Create(config)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create the DistributedCache instance
+	dc := &DistributedCache{
+		Cache:  cacheInstance,
+		List:   list,
+		Config: config,
+	}
+
+	return dc, nil
+}
+
+func NewDistributedCacheWithConfig(config *memberlist.Config) (*DistributedCache, error) {
+	// Initialize the local cache
+	cacheInstance := cache.NewCache()
 
 	// Create a memberlist instance
 	list, err := memberlist.Create(config)

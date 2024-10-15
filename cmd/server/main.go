@@ -15,7 +15,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Invalid PORT: %v", port)
 	}
-
 	peer := os.Getenv("PEER")
 
 	dc, err := distributed.NewDistributedCache(port)

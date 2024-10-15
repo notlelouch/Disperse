@@ -18,7 +18,6 @@ func TestCacheSetGet(t *testing.T) {
 func TestCacheExpiration(t *testing.T) {
 	c := NewCache()
 	c.Set("key2", "value2", 1*time.Second)
-
 	time.Sleep(2 * time.Second)
 
 	_, found := c.Get("key2")
