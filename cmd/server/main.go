@@ -25,6 +25,8 @@ func main() {
 		log.Fatalf("Failed to create distributed cache: %v", err)
 	}
 
+	// log.Printf("the peer is %v", peer)
+
 	if peer != "" {
 		err = dc.JoinCluster(peer)
 		if err != nil {
