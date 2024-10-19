@@ -39,22 +39,28 @@ Git
 ## Usage
 
 - ### Running a Distributed Cache Node
-  Each instance of the cache runs on a specific port, and nodes can join a cluster by connecting to existing peers. To start a node:
-  
+  Each instance of the cache runs on a specific port, and nodes can join a cluster by connecting to existing peers. To start a node(be in the root directory):
+  - Start the first node(in one terminal):
    ```bash
-    go run main.go <port>
+    export PORT=8080
+    export NODE_NAME=<node_name>
+    make run
+   ```
+    - Join the cluster(in another terminal instance):
+   ```bash
+    export PORT=<port>
+    export NODE_NAME=<node_name>
+    export PEER=127.0.0.1:8080
+    make run
    ```
 
-   Example:
+     - Example:
      ```bash
-    go run main.go 8001
-   ```
-- ### Joining the Cluster
-  Nodes can join a distributed cluster using the `joinCluster` function by specifying the address of an existing peer in the network. For example:
-  
-   ```bash
-    dc.joinCluster("localhost:8001")
-   ```
+    export PORT=8084
+    export NODE_NAME=node4
+    export PEER=127.0.0.1:8080
+    make run
+   ``` 
 - ### Interacting with the Cache
   The cache can be accessed via simple HTTP requests. Each node in the cluster can handle HTTP requests to interact with the distributed cache.
   1. #### Get a Value:
