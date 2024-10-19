@@ -84,13 +84,22 @@ Git
      ***Response:*** Deletes the key if found, no output on success.
 
 ## Project Structure
+
 ```
-├── cache.go          # Core cache logic for managing data storage and expiration
-├── distributed.go    # Implementation of the distributed cache, cluster management, HTTP API handlers
-├── main.go           # Entry point, starts the cache and joins cluster
-├── README.md         # Project documentation (this file)
-├── go.mod            # Go module dependencies
-└── go.sum            # Go module versions
+├── cmd/
+│   └── server/
+│       └── main.go               # Entry point, starts the cache and joins the cluster
+├── pkg/
+│   ├── cache/
+│   │   ├── cache.go              # Core cache logic for managing data storage and expiration
+│   │   └── cache_test.go         # Test file for cache.go
+│   └── distributed/
+│       ├── distributed.go        # Implementation of the distributed cache, cluster management, HTTP API handlers
+│       └── distributed_test.go   # Test file for distributed.go
+├── go.mod                        # Go module dependencies
+├── go.sum                        # Go module versions
+├── README.md                     # Project documentation
+└── LICENSE                       # License file for the project
 ```
 ### Important Files
 
