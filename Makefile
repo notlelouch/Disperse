@@ -1,8 +1,8 @@
 build:
-	go build -o bin/server
+	go build -o ./build/output ./cmd/server
 
 run: build
-	go run main.go
+	./build/output
 
 test:
 	go test -v ./...

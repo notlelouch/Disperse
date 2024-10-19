@@ -12,7 +12,8 @@ import (
 
 func TestNewDistributedCache(t *testing.T) {
 	port := 7946
-	dc, err := NewDistributedCache(port)
+	node_name := "node1"
+	dc, err := NewDistributedCache(port, node_name)
 	if err != nil {
 		t.Fatalf("Failed to create distributed cache: %v", err)
 	}
@@ -42,7 +43,7 @@ func TestNewDistributedCache(t *testing.T) {
 	}
 
 	// Try to create another instance with the same port (should fail)
-	_, err = NewDistributedCache(port)
+	_, err = NewDistributedCache(port, node_name)
 	if err == nil {
 		t.Error("Expected error when creating second instance with same port, but got nil")
 	}
@@ -110,7 +111,7 @@ func TestJoinCluster(t *testing.T) {
 	config1.AdvertiseAddr = "127.0.0.1"
 	config1.AdvertisePort = 7947
 
-	dc1, err := NewDistributedCacheWithConfig(config1)
+	dc1, err := NewDistributedCache(config1.BindPort, config1.Name)
 	if err != nil {
 		t.Fatalf("Failed to create first distributed cache: %v", err)
 	}
@@ -122,7 +123,7 @@ func TestJoinCluster(t *testing.T) {
 	config2.AdvertiseAddr = "127.0.0.1" // Using a different loopback address
 	config2.AdvertisePort = 7948
 
-	dc2, err := NewDistributedCacheWithConfig(config2)
+	dc2, err := NewDistributedCache(config2.BindPort, config2.Name)
 	if err != nil {
 		t.Fatalf("Failed to create second distributed cache: %v", err)
 	}
@@ -144,7 +145,7 @@ func TestJoinCluster(t *testing.T) {
 }
 
 func TestHTTPHandlerSetAndGet(t *testing.T) {
-	dc, _ := NewDistributedCache(7949)
+	dc, _ := NewDistributedCache(7949, "node1")
 
 	// Testing HTTP PUT
 	req := httptest.NewRequest(http.MethodPut, "/cache/key1", strings.NewReader("value=hello&duration=5000000000"))
@@ -180,7 +181,7 @@ func TestHTTPHandlerSetAndGet(t *testing.T) {
 }
 
 func TestHTTPHandlerDelete(t *testing.T) {
-	dc, _ := NewDistributedCache(7950)
+	dc, _ := NewDistributedCache(7950, "node1")
 
 	// Set a value first
 	dc.Cache.Set("key1", "value1", 5*time.Second)
@@ -202,7 +203,7 @@ func TestHTTPHandlerDelete(t *testing.T) {
 }
 
 func TestHTTPHandlerInvalidMethod(t *testing.T) {
-	dc, _ := NewDistributedCache(7951)
+	dc, _ := NewDistributedCache(7951, "node1")
 
 	req := httptest.NewRequest(http.MethodPost, "/cache/key1", nil)
 	w := httptest.NewRecorder()

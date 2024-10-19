@@ -15,9 +15,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("Invalid PORT: %v", port)
 	}
+
+	node_name := os.Getenv("NODE_NAME")
+
 	peer := os.Getenv("PEER")
 
-	dc, err := distributed.NewDistributedCache(port)
+	dc, err := distributed.NewDistributedCache(port, node_name)
 	if err != nil {
 		log.Fatalf("Failed to create distributed cache: %v", err)
 	}
@@ -31,5 +34,6 @@ func main() {
 
 	http.HandleFunc("/cache/", dc.HTTPHandler)
 	log.Printf("Server is running on port: %d", port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf("%d", port), nil))
+	log.Print(dc.Config.Name)
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
 }
