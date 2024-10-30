@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"log"
 	"sync"
 	"time"
 )
@@ -26,7 +27,7 @@ func (c *Cache) Set(key string, value interface{}, duration time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	expiration := time.Now().Add(duration).UnixNano()
+	expiration := time.Now().Add(duration).Unix()
 	c.items[key] = CacheItem{
 		Key:        key,
 		Value:      value,
@@ -39,9 +40,13 @@ func (c *Cache) Get(key string) (interface{}, bool) {
 	defer c.mu.RUnlock()
 
 	item, found := c.items[key]
-	if !found || item.Expiration <= time.Now().UnixNano() {
+	if !found || item.Expiration <= time.Now().Unix() {
 		return nil, false
 	}
+	if found {
+		log.Printf("Cache item found: Key=%s, Value=%v, Expiration=%d", item.Key, item.Value, item.Expiration)
+	}
+
 	return item.Value, true
 }
 
