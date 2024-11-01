@@ -42,23 +42,29 @@ Git
   Each instance of the cache runs on a specific port, and nodes can join a cluster by connecting to existing peers. To start a node(be in the root directory):
   - Start the first node(in one terminal):
    ```bash
-    export PORT=8080
-    export NODE_NAME=<node_name>
-    make run
+   # Terminal 1
+   export PORT=<memberlist_port>
+   export HTTP_PORT=<fiber_port>
+   export NODE_NAME=<node_name>
+   make run
    ```
     - Join the cluster(in another terminal instance):
    ```bash
-    export PORT=<port>
-    export NODE_NAME=<node_name>
-    export PEER=127.0.0.1:8080
-    make run
+   # Terminal 2
+   export PORT=<memberlist_port>       
+   export HTTP_PORT=<fiber_port    
+   export PEER=127.0.0.1:<memberlist_port>  
+   export NODE_NAME=<node_name>
+   make run
    ```
 
      - Example:
      ```bash
-    export PORT=8084
-    export NODE_NAME=node4
-    export PEER=127.0.0.1:8080
+   export PORT=7947         # Different Memberlist port
+   export HTTP_PORT=8001    # Different Fiber port
+   export PEER=127.0.0.1:7946  # Connect to first node's Memberlist port
+   export NODE_NAME=beta
+   make run
     make run
    ``` 
 - ### Interacting with the Cache
