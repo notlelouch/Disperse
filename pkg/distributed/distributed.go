@@ -60,7 +60,6 @@ func NewDistributedCacheWithConfig(config *memberlist.Config) (*DistributedCache
 	if err != nil {
 		return nil, err
 	}
-
 	// Create the DistributedCache instance
 	dc := &DistributedCache{
 		Cache:  cacheInstance,
@@ -73,8 +72,20 @@ func NewDistributedCacheWithConfig(config *memberlist.Config) (*DistributedCache
 
 // JoinCluster allows the current node to join an existing cluster using a peer address.
 func (dc *DistributedCache) JoinCluster(peer string) error {
-	number_of_nodes, err := dc.List.Join([]string{peer})
-	log.Printf("total nodes that are in the cluster: %d", number_of_nodes)
+	// Log initial members
+	members := dc.List.Members()
+	log.Printf("Members before joining: %d", len(members))
+
+	// Join cluster
+	_, err := dc.List.Join([]string{peer})
+
+	// Log updated members after joining
+	updatedMembers := dc.List.Members()
+	log.Printf("Members after joining: %d", len(updatedMembers))
+	for _, member := range updatedMembers {
+		log.Printf("Node: %s, Address: %s:%d", member.Name, member.Addr, member.Port)
+	}
+
 	return err
 }
 

@@ -11,7 +11,8 @@ import (
 )
 
 func main() {
-	// Separating the HTTP (Fiber) port from the Memberlist port:
+	// Separating the HTTP (Fiber) port from the Memberlist port
+	// (Fiber is not supporting both Memberlist and HTTP communication on the same port)
 	// port, err := strconv.Atoi(os.Getenv("PORT"))
 	httpPort, _ := strconv.Atoi(os.Getenv("HTTP_PORT"))
 	memberlistPort, _ := strconv.Atoi(os.Getenv("PORT"))
