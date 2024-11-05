@@ -2,12 +2,14 @@ module github.com/notlelouch/Distributed-Cache
 
 go 1.23.2
 
-require github.com/hashicorp/memberlist v0.5.1
+require (
+	github.com/gofiber/fiber/v2 v2.52.5
+	github.com/hashicorp/memberlist v0.5.1
+)
 
 require (
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da // indirect
-	github.com/gofiber/fiber/v2 v2.52.5 // indirect
 	github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c // indirect
 	github.com/google/uuid v1.5.0 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
