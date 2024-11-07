@@ -93,18 +93,15 @@ func main() {
 		log.Fatalf("Failed to parse request: %v", err)
 	}
 
-	// Get response
+	// Send request then Get response
 	statusCode, body, errs := app.Bytes()
 	if len(errs) > 0 {
 		log.Fatalf("Failed to make request: %v", errs[0])
 	}
 
-	log.Printf("Response Status Code: %d", statusCode)
-	log.Print(body)
-
-	// if statusCode != fiber.StatusOK {
-	// 	log.Fatalf("Request failed with status code: %d", statusCode)
-	// }
+	if statusCode != fiber.StatusOK {
+		log.Fatalf("Request failed with status code: %d", statusCode)
+	}
 
 	// Parse JSON response
 	var members []Member
