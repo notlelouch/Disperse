@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -15,7 +16,10 @@ type DistributedCache struct {
 	Cache  *cache.Cache
 	List   *memberlist.Memberlist
 	Config *memberlist.Config
+	mu     sync.RWMutex
 }
+
+var UpdatedMembersList []*memberlist.Node
 
 func NewDistributedCache(memberlistPort int, node_name string) (*DistributedCache, error) {
 	// Initialize the local cache
@@ -54,7 +58,6 @@ func NewDistributedCache(memberlistPort int, node_name string) (*DistributedCach
 func NewDistributedCacheWithConfig(config *memberlist.Config) (*DistributedCache, error) {
 	// Initialize the local cache
 	cacheInstance := cache.NewCache()
-
 	// Create a memberlist instance
 	list, err := memberlist.Create(config)
 	if err != nil {
@@ -80,9 +83,9 @@ func (dc *DistributedCache) JoinCluster(peer string) error {
 	_, err := dc.List.Join([]string{peer})
 
 	// Log updated members after joining
-	updatedMembers := dc.List.Members()
-	log.Printf("Members after joining: %d", len(updatedMembers))
-	for _, member := range updatedMembers {
+	UpdatedMembersList = dc.List.Members()
+	log.Printf("Members after joining: %d", len(UpdatedMembersList))
+	for _, member := range UpdatedMembersList {
 		log.Printf("Node: %s, Address: %s:%d", member.Name, member.Addr, member.Port)
 	}
 
@@ -128,6 +131,8 @@ func (dc *DistributedCache) JoinCluster(peer string) error {
 
 // Fiber Handler
 func (dc *DistributedCache) FiberHandler(c *fiber.Ctx) error {
+	fmt.Print("################   FiberHandler   ##################")
+
 	key := c.Params("key")
 	switch c.Method() {
 	case "GET":
@@ -160,4 +165,24 @@ func (dc *DistributedCache) FiberHandler(c *fiber.Ctx) error {
 	default:
 		return c.Status(fiber.StatusMethodNotAllowed).SendString("Method not allowed")
 	}
+}
+
+func (dc *DistributedCache) HandleGetMembers(c *fiber.Ctx) error {
+	fmt.Print("################   HandleGetMembers   ##################")
+	// dc.mu.RLock()
+	members := dc.List.Members()
+	// dc.mu.RUnlock()
+
+	response := make([]fiber.Map, len(members))
+
+	for i, member := range members {
+		response[i] = fiber.Map{
+			"name": member.Name,
+			"addr": member.Address(),
+			"port": member.Port,
+		}
+	}
+
+	log.Printf("response is %s", response)
+	return c.JSON(response)
 }
