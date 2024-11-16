@@ -1,6 +1,7 @@
 package distributed
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
@@ -133,14 +134,66 @@ func (dc *DistributedCache) JoinCluster(peer string) error {
 func (dc *DistributedCache) FiberHandler(c *fiber.Ctx) error {
 	fmt.Print("################   FiberHandler   ##################")
 
+	// Create sync request payload
+	type SyncPayload struct {
+		Method   string        `json:"method"`
+		Key      string        `json:"key"`
+		Value    string        `json:"value"`
+		Duration time.Duration `json:"duration"`
+	}
+
 	key := c.Params("key")
 	switch c.Method() {
 	case "GET":
 		log.Printf("METHODGET#####")
+		fmt.Printf("############lALALALALA############ %s", c.Method())
+
 		value, found := dc.Cache.Get(key)
 		if !found {
 			return c.SendStatus(fiber.StatusNotFound)
 		}
+
+		payload := SyncPayload{
+			Method: c.Method(),
+			Key:    key,
+			Value:  fmt.Sprintf("%v", value),
+		}
+
+		jsonPayload, err := json.Marshal(payload)
+		if err != nil {
+			log.Printf("Failed to marshal sync payload: %v", err)
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		// Create agent for HTTP request
+		httpPort := "8000"
+		agent := fiber.AcquireAgent()
+		defer fiber.ReleaseAgent(agent)
+
+		// Setup request
+		req := agent.Request()
+		req.Header.SetMethod(fiber.MethodPost)
+		req.Header.SetContentType("application/json")
+		req.SetRequestURI(fmt.Sprintf("http://127.0.0.1:%s/cache/sync", httpPort))
+		req.SetBody(jsonPayload)
+
+		if err := agent.Parse(); err != nil {
+			log.Printf("Failed to parse request: %v", err)
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		// Send request
+		statusCode, body, errs := agent.Bytes()
+		if len(errs) > 0 {
+			log.Printf("Failed to make sync request: %v", errs[0])
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		if statusCode != fiber.StatusOK {
+			log.Printf("Sync request failed with status code %d: %s", statusCode, string(body))
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
 		log.Printf("value of %s is %s", key, value)
 		return c.SendString(fmt.Sprintf("%v", value))
 
@@ -153,13 +206,97 @@ func (dc *DistributedCache) FiberHandler(c *fiber.Ctx) error {
 			return c.SendStatus(fiber.StatusBadRequest)
 		}
 		dc.Cache.Set(key, value, time.Duration(duration))
-		log.Printf("Successfully Set %s to %s", key, value)
+
+		payload := SyncPayload{
+			Method:   c.Method(),
+			Key:      key,
+			Value:    value,
+			Duration: time.Duration(duration),
+		}
+
+		jsonPayload, err := json.Marshal(payload)
+		if err != nil {
+			log.Printf("Failed to marshal sync payload: %v", err)
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		// Create agent for HTTP request
+		httpPort := "8000"
+		agent := fiber.AcquireAgent()
+		defer fiber.ReleaseAgent(agent)
+
+		// Setup request
+		req := agent.Request()
+		req.Header.SetMethod(fiber.MethodPost)
+		req.Header.SetContentType("application/json")
+		req.SetRequestURI(fmt.Sprintf("http://127.0.0.1:%s/cache/sync", httpPort))
+		req.SetBody(jsonPayload)
+
+		if err := agent.Parse(); err != nil {
+			log.Printf("Failed to parse request: %v", err)
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		// Send request
+		statusCode, body, errs := agent.Bytes()
+		if len(errs) > 0 {
+			log.Printf("Failed to make sync request: %v", errs[0])
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		if statusCode != fiber.StatusOK {
+			log.Printf("Sync request failed with status code %d: %s", statusCode, string(body))
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		log.Printf("Successfully Set %s to %s and broadcasted", key, value)
 		return c.SendStatus(fiber.StatusOK)
 
 	case "DELETE":
 		log.Printf("METHODEDELETE####")
 		dc.Cache.Delete(key)
-		log.Printf("Successfully delete %s", key)
+
+		payload := SyncPayload{
+			Method: c.Method(),
+			Key:    key,
+		}
+
+		jsonPayload, err := json.Marshal(payload)
+		if err != nil {
+			log.Printf("Failed to marshal sync payload: %v", err)
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		// Create agent for HTTP request
+		httpPort := "8000"
+		agent := fiber.AcquireAgent()
+		defer fiber.ReleaseAgent(agent)
+
+		// Setup request
+		req := agent.Request()
+		req.Header.SetMethod(fiber.MethodPost)
+		req.Header.SetContentType("application/json")
+		req.SetRequestURI(fmt.Sprintf("http://127.0.0.1:%s/cache/sync", httpPort))
+		req.SetBody(jsonPayload)
+
+		if err := agent.Parse(); err != nil {
+			log.Printf("Failed to parse request: %v", err)
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		// Send request
+		statusCode, body, errs := agent.Bytes()
+		if len(errs) > 0 {
+			log.Printf("Failed to make sync request: %v", errs[0])
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		if statusCode != fiber.StatusOK {
+			log.Printf("Sync request failed with status code %d: %s", statusCode, string(body))
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		log.Printf("Successfully deleted %s and broadcasted", key)
 		return c.SendStatus(fiber.StatusOK)
 
 	default:
@@ -182,7 +319,14 @@ func (dc *DistributedCache) HandleGetMembers(c *fiber.Ctx) error {
 			"port": member.Port,
 		}
 	}
-
 	log.Printf("response is %s", response)
+	return c.JSON(response)
+}
+
+func (dc *DistributedCache) HandleReqBroadcast(c *fiber.Ctx) error {
+	fmt.Print("################  HandleReqBroadcast  ##################")
+
+	response := c.Body()
+	log.Printf("Response body is %s", string(response))
 	return c.JSON(response)
 }

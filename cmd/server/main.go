@@ -48,6 +48,7 @@ func main() {
 	// Fiber Handler
 	app := fiber.New()
 	app.Get("/cache/members", dc.HandleGetMembers)
+	app.Post("/cache/sync", dc.HandleReqBroadcast)
 	app.All("/cache/:key", dc.FiberHandler)
 
 	log.Printf("Server is running on port: %d", httpPort)
