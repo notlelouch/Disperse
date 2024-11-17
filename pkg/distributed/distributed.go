@@ -86,6 +86,7 @@ func (dc *DistributedCache) JoinCluster(peer string) error {
 	// Log updated members after joining
 	UpdatedMembersList = dc.List.Members()
 	log.Printf("Members after joining: %d", len(UpdatedMembersList))
+	log.Printf("################ %s", peer)
 	for _, member := range UpdatedMembersList {
 		log.Printf("Node: %s, Address: %s:%d", member.Name, member.Addr, member.Port)
 	}
@@ -212,6 +213,14 @@ func (dc *DistributedCache) FiberHandler(c *fiber.Ctx) error {
 	}
 }
 
+type Member struct {
+	Name string `json:"name"`
+	Addr string `json:"addr"`
+	Port int    `json:"port"`
+}
+
+var Members []Member
+
 // broadcastToOtherNodes sends the request to all other nodes in the cluster
 func (dc *DistributedCache) broadcastToOtherNodes(payload SyncPayload) error {
 	log.Print("Inside the broadcastToOtherNodes function")
@@ -261,6 +270,6 @@ func (dc *DistributedCache) HandleGetMembers(c *fiber.Ctx) error {
 			"port": member.Port,
 		}
 	}
-	log.Printf("response is %s", response)
+	// log.Printf("response is %s", response)
 	return c.JSON(response)
 }

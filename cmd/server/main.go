@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -53,5 +54,54 @@ func main() {
 	log.Printf("Server is running on port: %d", httpPort)
 	log.Print(dc.Config.Name)
 	// log.Fatal(app.Listen(fmt.Sprintf(":%d", port)))
+	go GetMembers(httpPort)
 	log.Fatal(app.Listen(fmt.Sprintf(":%d", httpPort)))
+}
+
+// type Member struct {
+// 	Name string `json:"name"`
+// 	Addr string `json:"addr"`
+// 	Port int    `json:"port"`
+// }
+
+func GetMembers(httpPort int) *[]distributed.Member {
+	app1 := fiber.AcquireAgent()
+	defer fiber.ReleaseAgent(app1)
+
+	req := app1.Request()
+	req.Header.SetMethod(fiber.MethodGet)
+	req.SetRequestURI(fmt.Sprintf("http://127.0.0.1:%s/cache/members", strconv.Itoa(httpPort)))
+
+	if err := app1.Parse(); err != nil {
+		log.Fatalf("Failed to parse request: %v", err)
+	}
+
+	// Send request then Get response
+	statusCode, body, errs := app1.Bytes()
+	if len(errs) > 0 {
+		log.Fatalf("Failed to make request: %v", errs[0])
+	}
+
+	if statusCode != fiber.StatusOK {
+		log.Fatalf("Request failed with status code: %d", statusCode)
+	}
+
+	// Parse JSON response
+	// var members []Member
+	var members []distributed.Member
+	if err := json.Unmarshal(body, &members); err != nil {
+		log.Fatalf("Failed to parse JSON: %v", err)
+	}
+
+	// Log the members
+	fmt.Println("\nCluster Members:")
+	fmt.Println("----------------")
+	for _, member := range members {
+		fmt.Printf("Node: %s\n", member.Name)
+		fmt.Printf("Address: %s:%d\n", member.Addr, member.Port)
+		fmt.Println("----------------")
+	}
+
+	distributed.Members = members
+	return &members
 }
