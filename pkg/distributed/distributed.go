@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strconv"
 	"sync"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/hashicorp/memberlist"
@@ -128,225 +130,120 @@ func (dc *DistributedCache) JoinCluster(peer string) error {
 // 	}
 // }
 
-// Fiber Handler
+// SyncPayload represents the structure for synchronization requests
+type SyncPayload struct {
+	Method   string `json:"method"`
+	Key      string `json:"key"`
+	Value    string `json:"value"`
+	Duration string `json:"duration"`
+	IsSync   bool   `json:"is_sync"` // Flag to prevent infinite loops
+}
+
+// FiberHandler handles the main cache operations
 func (dc *DistributedCache) FiberHandler(c *fiber.Ctx) error {
 	fmt.Println("################   FiberHandler   ##################")
-	fmt.Println(c.Request())
-
-	// Create sync request payload
-	type SyncPayload struct {
-		Method   string `json:"method"`
-		Key      string `json:"key"`
-		Value    string `json:"value"`
-		Duration string `json:"duration"`
-	}
 
 	key := c.Params("key")
+	// Check if this is a sync request by looking at the headers
+	isSync := c.Get("X-Is-Sync") == "true"
+
 	switch c.Method() {
 	case "PUT":
 		log.Println("METHODEPUT#####")
-		log.Println(string(c.Body()))
-		// value := c.FormValue("value")
-		// durationStr := c.FormValue("duration")
-		// log.Printf("value: %s, duration: %s", value, durationStr)
-		//
-		// duration, err := strconv.ParseInt(durationStr, 10, 64)
-		// if err != nil {
-		// 	return c.SendStatus(fiber.StatusBadRequest)
-		// }
-		// log.Printf("##### Preparing to set value in cahce #####")
-		// dc.Cache.Set(key, value, time.Duration(duration))
-		// log.Printf("##### Successfully set value in cahce #####")
 
 		var requestBody struct {
 			Value    string `json:"value"`
 			Duration string `json:"duration"`
 		}
 
-		// Check if the Content-Type is JSON
 		if !c.Is("json") {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Content-Type must be application/json",
 			})
 		}
 
-		log.Println("##### Unmarshalling #####")
-		// Unmarshal and handle any errors
 		if err := json.Unmarshal(c.Body(), &requestBody); err != nil {
-			fmt.Printf("Unmarshal error: %v\n", err)
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Invalid JSON format",
 			})
 		}
-		log.Println("##### Unmarshalling Complete#####")
 
-		// Print the unmarshalled data for debugging
-		fmt.Printf("Unmarshalled data: %+v\n", requestBody)
-
-		// Use the JSON values directly
 		value := requestBody.Value
 		durationStr := requestBody.Duration
 
-		// Verify we got the values
 		if value == "" || durationStr == "" {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Missing required fields",
 			})
 		}
 
+		// Only broadcast to other nodes if this is not a sync request
+		if !isSync {
+			payload := SyncPayload{
+				Method:   c.Method(),
+				Key:      key,
+				Value:    value,
+				Duration: durationStr,
+				IsSync:   true,
+			}
+
+			if err := dc.broadcastToOtherNodes(payload); err != nil {
+				log.Printf("Failed to broadcast: %v", err)
+				// Continue with local operation even if broadcast fails
+			}
+		}
+		log.Printf("##### broadcastToOtherNodes called #####")
+
 		log.Printf("value: %s, duration: %s", value, durationStr)
 
-		payload := SyncPayload{
-			Method:   c.Method(),
-			Key:      key,
-			Value:    value,
-			Duration: durationStr,
-		}
-
-		jsonPayload, err := json.Marshal(payload)
+		duration, err := strconv.ParseInt(durationStr, 10, 64)
 		if err != nil {
-			log.Printf("Failed to marshal sync payload: %v", err)
-			return c.SendStatus(fiber.StatusInternalServerError)
+			return c.SendStatus(fiber.StatusBadRequest)
 		}
 
-		// Create agent for HTTP request
-		httpPort := "8000"
-		agent := fiber.AcquireAgent()
-		defer fiber.ReleaseAgent(agent)
+		log.Printf("##### Preparing to set value in cahce #####")
+		dc.Cache.Set(key, value, time.Duration(duration))
+		log.Printf("##### Successfully set value in cahce #####")
 
-		// Setup request
-		req := agent.Request()
-		req.Header.SetMethod(fiber.MethodPost)
-		req.Header.SetContentType("application/json")
-		req.SetRequestURI(fmt.Sprintf("http://127.0.0.1:%s/cache/sync", httpPort))
-		req.SetBody(jsonPayload)
-
-		log.Printf("##### Setting up the request #####")
-		if err := agent.Parse(); err != nil {
-			log.Printf("Failed to parse request: %v", err)
-			return c.SendStatus(fiber.StatusInternalServerError)
-		}
-		log.Printf("##### agent parsed the request #####")
-		log.Printf(req.String())
-
-		// Send request
-		statusCode, body, errs := agent.Bytes()
-		if len(errs) > 0 {
-			log.Printf("Failed to make sync request: %v", errs[0])
-			return c.SendStatus(fiber.StatusInternalServerError)
-		}
-		log.Printf("##### Sent the request #####")
-
-		if statusCode != fiber.StatusOK {
-			log.Printf("Sync request failed with status code %d: %s", statusCode, string(body))
-			return c.SendStatus(fiber.StatusInternalServerError)
-		}
-
-		log.Printf("Successfully Set %s to %s and broadcasted", key, value)
-		return c.SendStatus(fiber.StatusOK)
-
-	case "GET":
-		log.Printf("METHODGET#####")
-		fmt.Printf("############lALALALALA############ %s", c.Method())
-
-		value, found := dc.Cache.Get(key)
-		if !found {
-			return c.SendStatus(fiber.StatusNotFound)
-		}
-
-		payload := SyncPayload{
-			Method: c.Method(),
-			Key:    key,
-			Value:  fmt.Sprintf("%v", value),
-		}
-
-		jsonPayload, err := json.Marshal(payload)
-		if err != nil {
-			log.Printf("Failed to marshal sync payload: %v", err)
-			return c.SendStatus(fiber.StatusInternalServerError)
-		}
-		// Create agent for HTTP request
-		httpPort := "8000"
-		agent := fiber.AcquireAgent()
-		defer fiber.ReleaseAgent(agent)
-
-		// Setup request
-		req := agent.Request()
-		req.Header.SetMethod(fiber.MethodPost)
-		req.Header.SetContentType("application/json")
-		req.SetRequestURI(fmt.Sprintf("http://127.0.0.1:%s/cache/sync", httpPort))
-		req.SetBody(jsonPayload)
-
-		if err := agent.Parse(); err != nil {
-			log.Printf("Failed to parse request: %v", err)
-			return c.SendStatus(fiber.StatusInternalServerError)
-		}
-
-		// Send request
-		statusCode, body, errs := agent.Bytes()
-		if len(errs) > 0 {
-			log.Printf("Failed to make sync request: %v", errs[0])
-			return c.SendStatus(fiber.StatusInternalServerError)
-		}
-
-		if statusCode != fiber.StatusOK {
-			log.Printf("Sync request failed with status code %d: %s", statusCode, string(body))
-			return c.SendStatus(fiber.StatusInternalServerError)
-		}
-
-		log.Printf("value of %s is %s", key, value)
-		return c.SendString(fmt.Sprintf("%v", value))
-
-	case "DELETE":
-		log.Printf("METHODEDELETE####")
-		dc.Cache.Delete(key)
-
-		payload := SyncPayload{
-			Method: c.Method(),
-			Key:    key,
-		}
-
-		jsonPayload, err := json.Marshal(payload)
-		if err != nil {
-			log.Printf("Failed to marshal sync payload: %v", err)
-			return c.SendStatus(fiber.StatusInternalServerError)
-		}
-
-		// Create agent for HTTP request
-		httpPort := "8000"
-		agent := fiber.AcquireAgent()
-		defer fiber.ReleaseAgent(agent)
-
-		// Setup request
-		req := agent.Request()
-		req.Header.SetMethod(fiber.MethodPost)
-		req.Header.SetContentType("application/json")
-		req.SetRequestURI(fmt.Sprintf("http://127.0.0.1:%s/cache/sync", httpPort))
-		req.SetBody(jsonPayload)
-
-		if err := agent.Parse(); err != nil {
-			log.Printf("Failed to parse request: %v", err)
-			return c.SendStatus(fiber.StatusInternalServerError)
-		}
-
-		// Send request
-		statusCode, body, errs := agent.Bytes()
-		if len(errs) > 0 {
-			log.Printf("Failed to make sync request: %v", errs[0])
-			return c.SendStatus(fiber.StatusInternalServerError)
-		}
-
-		if statusCode != fiber.StatusOK {
-			log.Printf("Sync request failed with status code %d: %s", statusCode, string(body))
-			return c.SendStatus(fiber.StatusInternalServerError)
-		}
-
-		log.Printf("Successfully deleted %s and broadcasted", key)
 		return c.SendStatus(fiber.StatusOK)
 
 	default:
 		return c.Status(fiber.StatusMethodNotAllowed).SendString("Method not allowed")
 	}
+}
+
+// broadcastToOtherNodes sends the request to all other nodes in the cluster
+func (dc *DistributedCache) broadcastToOtherNodes(payload SyncPayload) error {
+	log.Print("Inside the broadcastToOtherNodes function")
+
+	// Create agent for HTTP request
+	agent := fiber.AcquireAgent()
+	defer fiber.ReleaseAgent(agent)
+
+	httpPort := "8001"
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal payload: %v", err)
+	}
+
+	// Setup request
+	req := agent.Request()
+	req.Header.SetMethod(payload.Method)
+	req.Header.SetContentType("application/json")
+	req.Header.Set("X-Is-Sync", "true") // Mark this as a sync request
+	req.SetRequestURI(fmt.Sprintf("http://127.0.0.1:%s/cache/%s", httpPort, payload.Key))
+	req.SetBody(jsonPayload)
+
+	if err := agent.Parse(); err != nil {
+		log.Printf("Failed to parse request for member %s", err)
+	}
+
+	statusCode, _, errs := agent.Bytes()
+	if len(errs) > 0 || statusCode != fiber.StatusOK {
+		log.Printf("Failed to sync with 8001 :", err)
+	}
+
+	return nil
 }
 
 func (dc *DistributedCache) HandleGetMembers(c *fiber.Ctx) error {
@@ -365,77 +262,5 @@ func (dc *DistributedCache) HandleGetMembers(c *fiber.Ctx) error {
 		}
 	}
 	log.Printf("response is %s", response)
-	return c.JSON(response)
-}
-
-func (dc *DistributedCache) HandleReqBroadcast(c *fiber.Ctx) error {
-	fmt.Println("################  HandleReqBroadcast  ##################")
-
-	response := c.Body()
-	var request map[string]interface{}
-	if err := json.Unmarshal(response, &request); err != nil {
-		log.Printf("Failed to unmarshal response: %v", err)
-		return c.SendStatus(fiber.StatusBadRequest)
-	}
-
-	fmt.Println("##### response unmarshalled into request ######")
-	fmt.Println(request)
-	// type SyncPayload struct {
-	// 	value    string `json:"value"`
-	// 	duration string `json:"duration"`
-	// }
-	//
-	// payload := SyncPayload{
-	// 	value:    fmt.Sprintf("%v", request["value"]),
-	// 	duration: fmt.Sprintf("%v", request["duration"]),
-	// }
-
-	// Convert float64 values to strings when creating the payload
-	payload := fiber.Map{
-		// "key":      fmt.Sprintf("%v", request["key"]),
-		"value":    fmt.Sprintf("%v", request["value"]),
-		"duration": fmt.Sprintf("%v", request["duration"]),
-	}
-
-	fmt.Print("##### This is the payload #####")
-	fmt.Println(payload)
-
-	jsonPayload, err := json.Marshal(payload)
-	if err != nil {
-		log.Printf("Failed to marshal sync payload: %v", err)
-		return c.SendStatus(fiber.StatusInternalServerError)
-	}
-
-	httpPort := "8001"
-	agent := fiber.AcquireAgent()
-	defer fiber.ReleaseAgent(agent)
-
-	req := agent.Request()
-	req.Header.SetMethod(request["method"].(string))
-	req.Header.SetContentType("application/json")
-	// req.Header.SetContentType("application/x-www-form-urlencoded") // Changed to match original request
-	req.SetRequestURI(fmt.Sprintf("http://127.0.0.1:%s/cache/%s", httpPort, request["key"].(string)))
-	req.SetBody(jsonPayload)
-
-	if err := agent.Parse(); err != nil {
-		log.Printf("Failed to parse request: %v", err)
-		return c.SendStatus(fiber.StatusInternalServerError)
-	}
-	fmt.Println(req)
-
-	// Send request
-	statusCode, body, errs := agent.Bytes()
-	if len(errs) > 0 {
-		log.Printf("Failed to make sync request: %v", errs[0])
-		return c.SendStatus(fiber.StatusInternalServerError)
-	}
-
-	fmt.Println("#####  Request Sent  #####")
-	if statusCode != fiber.StatusOK {
-		log.Printf("Sync request failed with status code %d: %s", statusCode, string(body))
-		return c.SendStatus(fiber.StatusInternalServerError)
-	}
-
-	log.Printf("Response body is %s", string(response))
 	return c.JSON(response)
 }
