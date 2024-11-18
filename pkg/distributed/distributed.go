@@ -14,15 +14,49 @@ import (
 )
 
 type DistributedCache struct {
-	Cache  *cache.Cache
-	List   *memberlist.Memberlist
-	Config *memberlist.Config
-	mu     sync.RWMutex
+	Cache    *cache.Cache
+	List     *memberlist.Memberlist
+	Config   *memberlist.Config
+	mu       sync.RWMutex
+	Meta     []byte
+	HTTPPort int
 }
 
 var UpdatedMembersList []*memberlist.Node
 
-func NewDistributedCache(memberlistPort int, node_name string) (*DistributedCache, error) {
+// Define a delegate to handle metadata
+// Each node in the cluster will have its own delegate
+// The delegate stores that node's HTTP port
+// Memberlist uses the delegate to share metadata (including HTTP port) with other nodes
+
+type cacheDelegate struct {
+	httpPort int
+}
+type NodeMetadata struct {
+	HTTPPort int `json:"http_port"`
+}
+
+// NodeMeta is required by the Delegate interface
+func (d *cacheDelegate) NodeMeta(limit int) []byte {
+	// Create metadata with HTTP port
+	meta := NodeMetadata{
+		HTTPPort: d.httpPort,
+	}
+
+	metaBytes, _ := json.Marshal(meta)
+	if len(metaBytes) > limit {
+		return metaBytes[:limit]
+	}
+	return metaBytes
+}
+
+// These methods are required by the Delegate interface but we won't use them
+func (d *cacheDelegate) NotifyMsg([]byte)                           {}
+func (d *cacheDelegate) GetBroadcasts(overhead, limit int) [][]byte { return nil }
+func (d *cacheDelegate) LocalState(join bool) []byte                { return nil }
+func (d *cacheDelegate) MergeRemoteState(buf []byte, join bool)     {}
+
+func NewDistributedCache(memberlistPort int, httpPort int, node_name string) (*DistributedCache, error) {
 	// Initialize the local cache
 	cacheInstance := cache.NewCache()
 	config := memberlist.DefaultLocalConfig()
@@ -32,6 +66,7 @@ func NewDistributedCache(memberlistPort int, node_name string) (*DistributedCach
 	// config.BindPort = port
 	config.BindPort = memberlistPort // Use different port for memberlist
 	config.AdvertiseAddr = "127.0.0.1"
+	// config.
 
 	// config.AdvertisePort = port
 	config.AdvertisePort = memberlistPort
@@ -39,6 +74,21 @@ func NewDistributedCache(memberlistPort int, node_name string) (*DistributedCach
 	// config := memberlist.DefaultLANConfig()
 	// config.BindPort = port
 	// config.AdvertisePort = port
+
+	meta := NodeMetadata{
+		HTTPPort: httpPort,
+	}
+
+	metaBytes, err := json.Marshal(meta)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal metadata: %v", err)
+	}
+
+	// Create and set the delegate
+	delegate := &cacheDelegate{
+		httpPort: httpPort,
+	}
+	config.Delegate = delegate
 
 	// Create a memberlist instance
 	list, err := memberlist.Create(config)
@@ -48,9 +98,11 @@ func NewDistributedCache(memberlistPort int, node_name string) (*DistributedCach
 
 	// Create the DistributedCache instance
 	dc := &DistributedCache{
-		Cache:  cacheInstance,
-		List:   list,
-		Config: config,
+		Cache:    cacheInstance,
+		List:     list,
+		Config:   config,
+		HTTPPort: httpPort,
+		Meta:     metaBytes,
 	}
 
 	return dc, nil
@@ -213,14 +265,6 @@ func (dc *DistributedCache) FiberHandler(c *fiber.Ctx) error {
 	}
 }
 
-type Member struct {
-	Name string `json:"name"`
-	Addr string `json:"addr"`
-	Port int    `json:"port"`
-}
-
-var Members []Member
-
 // broadcastToOtherNodes sends the request to all other nodes in the cluster
 func (dc *DistributedCache) broadcastToOtherNodes(payload SyncPayload) error {
 	log.Print("Inside the broadcastToOtherNodes function")
@@ -255,6 +299,15 @@ func (dc *DistributedCache) broadcastToOtherNodes(payload SyncPayload) error {
 	return nil
 }
 
+type Member struct {
+	Name     string `json:"name"`
+	Addr     string `json:"addr"`
+	Port     int    `json:"port"`
+	HTTPPort int    `json:"http_port"`
+}
+
+var Members []Member
+
 func (dc *DistributedCache) HandleGetMembers(c *fiber.Ctx) error {
 	fmt.Print("################   HandleGetMembers   ##################")
 	// dc.mu.RLock()
@@ -263,13 +316,31 @@ func (dc *DistributedCache) HandleGetMembers(c *fiber.Ctx) error {
 
 	response := make([]fiber.Map, len(members))
 
+	// httpPort, _ := strconv.Atoi(os.Getenv("HTTP_PORT"))
+
+	// for i, member := range members { response[i] = fiber.Map{
+	// 		"name": member.Name,
+	// 		"addr": member.Address(),
+	// 		"port": httpPort,
+	// 	}
+	// }
+	// log.Printf("response is %s", response)
+
 	for i, member := range members {
+		// Parse metadata to get HTTP port
+		var meta NodeMetadata
+		if err := json.Unmarshal(member.Meta, &meta); err != nil {
+			// If metadata parsing fails, use default member port
+			// meta.HTTPPort = member.Port
+			log.Fatal("aab toh BHANG BHOSDAA hogya hai dimag ka!")
+		}
+
 		response[i] = fiber.Map{
-			"name": member.Name,
-			"addr": member.Address(),
-			"port": member.Port,
+			"name":      member.Name,
+			"addr":      member.Address(),
+			"port":      member.Port,
+			"http_port": meta.HTTPPort,
 		}
 	}
-	// log.Printf("response is %s", response)
 	return c.JSON(response)
 }

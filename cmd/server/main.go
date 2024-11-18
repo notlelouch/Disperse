@@ -26,7 +26,7 @@ func main() {
 	peer := os.Getenv("PEER")
 
 	// dc, err := distributed.NewDistributedCache(port, node_name)
-	dc, err := distributed.NewDistributedCache(memberlistPort, node_name)
+	dc, err := distributed.NewDistributedCache(memberlistPort, httpPort, node_name)
 	if err != nil {
 		log.Fatalf("Failed to create distributed cache: %v", err)
 	}
@@ -93,12 +93,13 @@ func GetMembers(httpPort int) *[]distributed.Member {
 		log.Fatalf("Failed to parse JSON: %v", err)
 	}
 
+	log.Printf("this is the HTTP_PORT: %d", httpPort)
 	// Log the members
 	fmt.Println("\nCluster Members:")
 	fmt.Println("----------------")
 	for _, member := range members {
 		fmt.Printf("Node: %s\n", member.Name)
-		fmt.Printf("Address: %s:%d\n", member.Addr, member.Port)
+		fmt.Printf("Address: %s:%d\n", member.Addr, member.HTTPPort)
 		fmt.Println("----------------")
 	}
 
