@@ -10,7 +10,7 @@ import (
 func TestNewDistributedCache(t *testing.T) {
 	port := 7946
 	node_name := "node1"
-	dc, err := NewDistributedCache(port, node_name)
+	dc, err := NewDistributedCache(port, 8000, node_name)
 	if err != nil {
 		t.Fatalf("Failed to create distributed cache: %v", err)
 	}
@@ -40,7 +40,7 @@ func TestNewDistributedCache(t *testing.T) {
 	}
 
 	// Try to create another instance with the same port (should fail)
-	_, err = NewDistributedCache(port, node_name)
+	_, err = NewDistributedCache(port, 8000, node_name)
 	if err == nil {
 		t.Error("Expected error when creating second instance with same port, but got nil")
 	}
@@ -108,7 +108,7 @@ func TestJoinCluster(t *testing.T) {
 	config1.AdvertiseAddr = "127.0.0.1"
 	config1.AdvertisePort = 7947
 
-	dc1, err := NewDistributedCache(config1.BindPort, config1.Name)
+	dc1, err := NewDistributedCache(config1.BindPort, 8000, config1.Name)
 	if err != nil {
 		t.Fatalf("Failed to create first distributed cache: %v", err)
 	}
@@ -120,7 +120,7 @@ func TestJoinCluster(t *testing.T) {
 	config2.AdvertiseAddr = "127.0.0.1" // Using a different loopback address
 	config2.AdvertisePort = 7948
 
-	dc2, err := NewDistributedCache(config2.BindPort, config2.Name)
+	dc2, err := NewDistributedCache(config2.BindPort, 8001, config2.Name)
 	if err != nil {
 		t.Fatalf("Failed to create second distributed cache: %v", err)
 	}

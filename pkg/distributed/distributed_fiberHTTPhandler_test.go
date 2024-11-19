@@ -12,7 +12,7 @@ import (
 
 // ####################################################   Testing Fiber HTTP handlers   ##############################################
 func TestFiberHandlerSetAndGet(t *testing.T) {
-	dc, _ := NewDistributedCache(7949, "node1")
+	dc, _ := NewDistributedCache(7949, 8000, "node1")
 
 	// Create a new Fiber app
 	app := fiber.New()
@@ -64,7 +64,7 @@ func TestFiberHandlerSetAndGet(t *testing.T) {
 }
 
 func TestFiberHandlerDelete(t *testing.T) {
-	dc, _ := NewDistributedCache(7950, "node1")
+	dc, _ := NewDistributedCache(7950, 8000, "node1")
 
 	// Create a new Fiber application
 	app := fiber.New()
@@ -97,7 +97,7 @@ func TestFiberHandlerDelete(t *testing.T) {
 }
 
 func TestFiberHandlerInvalidMethod(t *testing.T) {
-	dc, _ := NewDistributedCache(7951, "node1")
+	dc, _ := NewDistributedCache(7951, 8000, "node1")
 
 	// Create a new Fiber app
 	app := fiber.New()
