@@ -267,6 +267,51 @@ func (dc *DistributedCache) FiberHandler(c *fiber.Ctx) error {
 
 		return c.SendStatus(fiber.StatusOK)
 
+	case "GET":
+		log.Printf("METHODGET#####")
+
+		if !isSync {
+			payload := SyncPayload{
+				Method: c.Method(),
+				Key:    key,
+				IsSync: true,
+			}
+
+			if err := dc.broadcastToOtherNodes(payload); err != nil {
+				log.Printf("Failed to broadcast: %v", err)
+				// Continue with local operation even if broadcast fails
+			}
+		}
+		log.Printf("##### broadcastToOtherNodes called #####")
+
+		value, found := dc.Cache.Get(key)
+		if !found {
+			return c.SendStatus(fiber.StatusNotFound)
+		}
+		log.Printf("value of %s is %s", key, value)
+		return c.SendString(fmt.Sprintf("%v", value))
+
+	case "DELETE":
+		log.Printf("METHODEDELETE####")
+		if !isSync {
+			payload := SyncPayload{
+				Method: c.Method(),
+				Key:    key,
+				IsSync: true,
+			}
+
+			if err := dc.broadcastToOtherNodes(payload); err != nil {
+				log.Printf("Failed to broadcast: %v", err)
+				// Continue with local operation even if broadcast fails
+			}
+		}
+		log.Printf("##### broadcastToOtherNodes called #####")
+
+		dc.Cache.Delete(key)
+
+		log.Printf("Successfully deleted %s", key)
+		return c.SendStatus(fiber.StatusOK)
+
 	default:
 		return c.Status(fiber.StatusMethodNotAllowed).SendString("Method not allowed")
 	}
