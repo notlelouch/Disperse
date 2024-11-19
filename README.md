@@ -58,22 +58,24 @@ Git
    make run
    ```
 
-     - Example:
-     ```bash
-   export PORT=7947         # Different Memberlist port
-   export HTTP_PORT=8001    # Different Fiber port
+  - Example:
+  ```bash
+   export PORT=7947         # Memberlist port
+   export HTTP_PORT=8001    # Fiber port that is different from Memberlist port
    export PEER=127.0.0.1:7946  # Connect to first node's Memberlist port
    export NODE_NAME=beta
    make run
-    make run
    ``` 
 - ### Interacting with the Cache
   The cache can be accessed via simple HTTP requests. Each node in the cluster can handle HTTP requests to interact with the distributed cache.
+  #### By default all the requests are being broadcasted in the cluster, but you can optionally set the X-Is-Sync flag to true for any request, then the request will only be a sync request(i.e limited to that particular node) and will not be broadcasted to other nodes in the cluster
   1. #### Get a Value:
       Retrieve a cached value by sending a `GET` request to `/cache/{key}`.
   
      ```bash
-      curl -X GET http://localhost:8001/cache/myKey
+      curl -X GET \
+     -H "Content-Type: application/json" \
+     http://localhost:8000/cache/John10
      ```
      ***Response:*** Returns the cached value if found, or a 404 if the key is not in the cache.
 
@@ -81,19 +83,25 @@ Git
       Store a value in the cache using a `PUT` request with `value` and `duration` as parameters. `duration` is the expiration time (in seconds) for the cached value
   
      ```bash
-      curl -X PUT http://localhost:8001/cache/myKey -d "value=myValue&duration=60"
+     curl -X PUT \
+     -H "Content-Type: application/json" \
+     -d '{"value": "test", "duration": "9000000000000"}' \
+     http://localhost:8002/cache/John10
      ```
      ***Response:*** Returns the cached value if found, or a 404 if the key is not in the cache.
      ***Parameters:***
       - `value`: The value to store in the cache.
-      - `duration`: How long (in seconds) the value should be stored.
+      - `duration`: How long (in nanoseconds) the value should be stored.
 
   4. #### Delete a Value:
       Remove a cached value by sending a DELETE request to /cache/{key}.
      ```bash
-      curl -X DELETE http://localhost:8001/cache/myKey
+      curl -X DELETE \
+        -H "Content-Type: application/json" \
+        http://localhost:8001/cache/John10
      ```
      ***Response:*** Deletes the key if found, no output on success.
+  
 
 ## Project Structure
 
@@ -134,11 +142,14 @@ The cache uses default settings for the gossip-based protocol and cluster manage
 ```
 
 ## How It Works
-1. **Cluster Membership:** Each node maintains a list of active peers, using a gossip-based protocol to share state information about the current cluster.
-2. **Failure Detection:** Nodes send periodic heartbeat messages to peers. If a node doesn’t respond within the timeout, it’s marked as suspect and eventually considered failed if it doesn’t recover.
-3. **Cache Operations:** The HTTP API allows users to `GET`, `PUT`, and `DELETE` keys in the cache. Each node manages its local cache, and future updates may include cache synchronization across nodes.
+The Distributed Cache System ensures scalability, fault tolerance, and high availability through a robust architecture:
 
+- **Cluster Membership:** Nodes form a dynamic cluster using HashiCorp's Memberlist, exchanging state via a gossip protocol for seamless peer discovery and consistency.
+- **Failure Detection:** Periodic heartbeats detect node failures in real-time, with automatic adjustments to maintain cluster integrity.
+- **Caching Operations:** A RESTful API enables efficient data storage, retrieval, and deletion. Requests broadcast across the cluster by default, with optional local-only operations.
+- **Scalability & Resilience:** Nodes join or leave seamlessly, maintaining service availability and enabling horizontal scaling.
 
+This design combines simplicity and power, ensuring efficient distributed caching under real-world conditions.
 ## Contributing
 
 Contributions are welcome! If you have ideas for improvements, new features, or bug fixes, please open an issue or submit a pull request.
