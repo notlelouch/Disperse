@@ -103,6 +103,6 @@ func GetMembers(httpPort int) *[]distributed.Member {
 		fmt.Println("----------------")
 	}
 
-	distributed.Members = members
+	// distributed.Members = members
 	return &members
 }

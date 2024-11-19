@@ -22,9 +22,16 @@ type DistributedCache struct {
 	HTTPPort int
 }
 
+type Member struct {
+	Name     string `json:"name"`
+	Addr     string `json:"addr"`
+	Port     int    `json:"port"`
+	HTTPPort int    `json:"http_port"`
+}
+
 var UpdatedMembersList []*memberlist.Node
 
-// Define a delegate to handle metadata
+// Defining a delegate to handle metadata
 // Each node in the cluster will have its own delegate
 // The delegate stores that node's HTTP port
 // Memberlist uses the delegate to share metadata (including HTTP port) with other nodes
@@ -265,45 +272,64 @@ func (dc *DistributedCache) FiberHandler(c *fiber.Ctx) error {
 	}
 }
 
-// broadcastToOtherNodes sends the request to all other nodes in the cluster
+// broadcastToOtherNodes broadcasts the incoming cache request(to a single node) to all the other nodes in the cluster
 func (dc *DistributedCache) broadcastToOtherNodes(payload SyncPayload) error {
 	log.Print("Inside the broadcastToOtherNodes function")
 
-	// Create agent for HTTP request
 	agent := fiber.AcquireAgent()
 	defer fiber.ReleaseAgent(agent)
 
 	httpPort := "8001"
-	jsonPayload, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("failed to marshal payload: %v", err)
-	}
 
-	// Setup request
-	req := agent.Request()
-	req.Header.SetMethod(payload.Method)
-	req.Header.SetContentType("application/json")
-	req.Header.Set("X-Is-Sync", "true") // Mark this as a sync request
-	req.SetRequestURI(fmt.Sprintf("http://127.0.0.1:%s/cache/%s", httpPort, payload.Key))
-	req.SetBody(jsonPayload)
+	// ##### Request for getting httpPorts of all the nodes in the cluster #####
+	req2 := agent.Request()
+	req2.Header.SetMethod(fiber.MethodGet)
+	req2.Header.SetContentType("application/json")
+	req2.SetRequestURI(fmt.Sprintf("http://127.0.0.1:%s/cache/members", httpPort))
 
 	if err := agent.Parse(); err != nil {
 		log.Printf("Failed to parse request for member %s", err)
 	}
 
-	statusCode, _, errs := agent.Bytes()
+	statusCode, body, errs := agent.Bytes()
 	if len(errs) > 0 || statusCode != fiber.StatusOK {
-		log.Printf("Failed to sync with 8001 :", err)
+		log.Printf("Failed to sync with 8001 :", errs)
+	}
+	var members []Member
+
+	if err := json.Unmarshal(body, &members); err != nil {
+		log.Fatalf("Failed to parse JSON: %v", err)
+	}
+
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal payload: %v", err)
+	}
+	log.Print(members)
+	for _, member := range members {
+		// ##### Request for broadcasting a Cache request to a specific httpPort in the cluster #####
+
+		// Setup request
+		req := agent.Request()
+		req.Header.SetMethod(payload.Method)
+		req.Header.SetContentType("application/json")
+		req.Header.Set("X-Is-Sync", "true") // Mark this as a sync request
+		req.SetRequestURI(fmt.Sprintf("http://127.0.0.1:%s/cache/%s", strconv.Itoa(member.HTTPPort), payload.Key))
+		req.SetBody(jsonPayload)
+
+		if err := agent.Parse(); err != nil {
+			log.Printf("Failed to parse request for member %s", err)
+		}
+
+		log.Printf("########## port is : %s", strconv.Itoa(member.HTTPPort))
+		statusCode, _, errs = agent.Bytes()
+		if len(errs) > 0 || statusCode != fiber.StatusOK {
+			log.Printf("Failed to sync with 8001 :", err)
+		}
+
 	}
 
 	return nil
-}
-
-type Member struct {
-	Name     string `json:"name"`
-	Addr     string `json:"addr"`
-	Port     int    `json:"port"`
-	HTTPPort int    `json:"http_port"`
 }
 
 var Members []Member
@@ -316,6 +342,7 @@ func (dc *DistributedCache) HandleGetMembers(c *fiber.Ctx) error {
 
 	response := make([]fiber.Map, len(members))
 
+	// Previous Method(not working)
 	// httpPort, _ := strconv.Atoi(os.Getenv("HTTP_PORT"))
 
 	// for i, member := range members { response[i] = fiber.Map{
@@ -326,6 +353,7 @@ func (dc *DistributedCache) HandleGetMembers(c *fiber.Ctx) error {
 	// }
 	// log.Printf("response is %s", response)
 
+	// New Method(using delegate meta data), smooooooothh operatorrrrrr!
 	for i, member := range members {
 		// Parse metadata to get HTTP port
 		var meta NodeMetadata
@@ -342,5 +370,7 @@ func (dc *DistributedCache) HandleGetMembers(c *fiber.Ctx) error {
 			"http_port": meta.HTTPPort,
 		}
 	}
+	// log.Printf("response is %s", response)
+
 	return c.JSON(response)
 }
