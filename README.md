@@ -149,6 +149,32 @@ The Distributed Cache System ensures scalability, fault tolerance, and high avai
 - **Caching Operations:** A RESTful API enables efficient data storage, retrieval, and deletion. Requests broadcast across the cluster by default, with optional local-only operations.
 - **Scalability & Resilience:** Nodes join or leave seamlessly, maintaining service availability and enabling horizontal scaling.
 
+
+## Future Plans  
+
+Here’s how I plan to enhance the Distributed Cache System:  
+
+- **Ensuring Data Integrity:**  
+  I’ll integrate cryptographic hashes and Merkle Trees to detect tampering and enable efficient data audits. Immutable, append-only logs will be implemented for a complete history of changes.  
+
+- **Decentralizing the Architecture:**  
+  The system will evolve into a peer-to-peer model where nodes validate data independently. Lightweight consensus protocols like RAFT or PBFT will ensure consistency without relying on central coordination.  
+
+- **Introducing Incentives:**  
+  Nodes contributing storage or computation will be rewarded with tokens, managed via a blockchain layer. A reputation-based system will prioritize reliable nodes for critical operations.  
+
+- **Optimizing Global Latency:**  
+  Multi-region clusters will route data requests to the nearest server, ensuring super low latency for users worldwide.  
+
+- **Boosting Reliability:**  
+  Persistence to disk, periodic snapshots, and quorum-based consistency mechanisms will strengthen fault tolerance and data recovery.  
+
+- **Enhancing Security:**  
+  Authentication tokens, data encryption, and rate limiting will safeguard the system against unauthorized access and abuse.  
+
+These upgrades are designed to take the system to the next level, delivering greater performance, reliability, and security.  
+
+
 This design combines simplicity and power, ensuring efficient distributed caching under real-world conditions.
 ## Contributing
 
