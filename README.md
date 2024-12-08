@@ -1,8 +1,6 @@
-# Distributed Cache System
+# Disperse: A Scalable, Fault-Tolerant Distributed Data Platform
 
-The Distributed Cache System is a scalable, high-performance, and fault-tolerant caching solution built using Go and HashiCorp's Memberlist library. It allows data to be cached across multiple nodes in a distributed cluster, enabling robust data storage, efficient retrieval, and automatic failure detection using a gossip-based protocol.
-
-This project extends the functionality of a basic cache by implementing distributed caching across multiple nodes, supporting cluster membership and dynamic peer discovery.
+Disperse is an advanced distributed data platform designed to manage caching, data storage, and redundancy across a cluster of nodes. Built with Go and HashiCorp’s Memberlist library, it goes beyond traditional caching systems by incorporating dynamic cluster membership, seamless peer discovery, and real-time failure detection. With planned future enhancements like decentralized architecture, cryptographic data integrity, and incentivized participation, Disperse aims to provide a versatile, high-performance solution for modern distributed applications that demand scalability, security, and resilience.
 
 ## Key Features
 
