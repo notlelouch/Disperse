@@ -180,4 +180,4 @@ These upgrades are designed to take the system to the next level, delivering gre
 This design combines simplicity and power, ensuring efficient distributed caching under real-world conditions.
 ## Contributing
 
-Contributions are welcome! If you have ideas for improvements, new features, or bug fixes, please open an issue or submit a pull request.
+Contributions are welcome!
